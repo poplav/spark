@@ -695,6 +695,29 @@ class CodegenContext {
     }
   }
 
+  def createAndAddFunction(
+                                    ctx: CodegenContext,
+                                    ev: ExprCode,
+                                    dataType: DataType,
+                                    baseFuncName: String): (String, String, String) = {
+    val globalIsNull = ctx.freshName("isNull")
+    ctx.addMutableState("boolean", globalIsNull, s"$globalIsNull = false;")
+    val globalValue = ctx.freshName("value")
+    ctx.addMutableState(ctx.javaType(dataType), globalValue,
+      s"$globalValue = ${ctx.defaultValue(dataType)};")
+    val funcName = ctx.freshName(baseFuncName)
+    val funcBody =
+      s"""
+         |private void $funcName(InternalRow ${ctx.INPUT_ROW}) {
+         |  ${ev.code.trim}
+         |  $globalIsNull = ${ev.isNull};
+         |  $globalValue = ${ev.value};
+         |}
+         """.stripMargin
+    ctx.addNewFunction(funcName, funcBody)
+    (funcName, globalIsNull, globalValue)
+  }
+
   /**
    * Perform a function which generates a sequence of ExprCodes with a given mapping between
    * expressions and common expressions, instead of using the mapping in current context.
